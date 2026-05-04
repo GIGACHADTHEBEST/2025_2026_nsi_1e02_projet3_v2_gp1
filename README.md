@@ -1,12 +1,62 @@
-# 2025_2026_nsi_1e02_projet3_v2_gp1
-Jermolajs ADARCENKO
-Raphaël BOTALLA-GAMBETTA
-Gwenole BEILLEVAIRE 
+# ChessMind
 
-ChessMind est un moteur d'échecs en Python capable d'apprendre à jouer par lui-même grâce au self-play et à l'apprentissage par renforcement. Inspiré du principe d'AlphaZero, le programme joue des milliers de parties contre lui-même, analyse ses erreurs, et améliore progressivement sa stratégie — sans jamais avoir été programmé avec des règles d'ouverture ou de tactique.
-Moteur de règles complet (déplacements, roque, prise en passant, promotion, échec/mat/pat)
-Réseau de neurones évaluant les positions (entrée : plateau encodé, sortie : score + probabilités de coups)
-Boucle de self-play : l'IA joue contre elle-même et génère ses propres données d'entraînement
-Entraînement itératif : plus elle joue, plus elle s'améliore
-Interface en terminal (ou optionnellement graphique avec pygame)
-Sauvegarde et chargement des modèles entraînés
+Moteur d'échecs en Python avec apprentissage par renforcement (self-play), inspiré d'AlphaZero.
+
+## Installation
+
+```bash
+pip install torch numpy
+pip install pygame  # optionnel, pour l'interface graphique
+```
+
+## Utilisation
+
+Depuis le dossier `chessmind/` :
+
+```bash
+# Entraîner l'IA
+python main.py train
+
+# Jouer contre l'IA
+python main.py play
+
+# Regarder l'IA jouer contre elle-même
+python main.py watch
+```
+
+## Structure
+
+```
+chessmind/
+├── model/
+│   ├── board.py         # Plateau, pièces, application des coups
+│   ├── rules.py         # Génération des coups légaux (roque, e.p., promotion...)
+│   └── neural_net.py    # Réseau de neurones (PyTorch) + encodage du plateau
+├── view/
+│   ├── terminal_view.py # Affichage ASCII
+│   └── gui_view.py      # Affichage graphique pygame (optionnel)
+├── controller/
+│   ├── game.py          # Orchestration d'une partie
+│   ├── self_play.py     # Boucle de self-play, agent neuronal, agent aléatoire
+│   └── trainer.py       # Entraînement, sauvegarde, chargement du modèle
+├── data/games/          # Parties sauvegardées
+├── models/              # Poids du réseau (checkpoint.pth)
+└── main.py              # Point d'entrée
+```
+
+## Comment ca fonctionne
+
+1. Le réseau est initialisé avec des poids aléatoires.
+2. Deux instances jouent l'une contre l'autre (self-play).
+3. Le résultat de la partie est propagé sur toutes les positions jouées.
+4. Le réseau s'entraîne sur ces données.
+5. Le cycle recommence — la qualité de jeu augmente progressivement.
+
+## Paramètres (dans main.py)
+
+| Paramètre        | Défaut | Description                          |
+|------------------|--------|--------------------------------------|
+| ITERATIONS       | 10     | Nombre de cycles entraînement        |
+| GAMES_PER_ITER   | 50     | Parties de self-play par itération   |
+| TRAIN_EPOCHS     | 5      | Epochs d'entraînement par itération  |
+| TEMPERATURE      | 1.0    | Exploration (0 = greedy, >0 = aléa)  |
