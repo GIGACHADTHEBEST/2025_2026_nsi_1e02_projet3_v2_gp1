@@ -1,6 +1,6 @@
 import copy
 
-# Pièces : positif = blancs, négatif = noirs
+
 EMPTY = 0
 PAWN   = 1
 KNIGHT = 2
@@ -21,12 +21,12 @@ PIECE_SYMBOLS = {
 
 def initial_board():
     board = [[0]*8 for _ in range(8)]
-    # Pièces blanches (rangée 0 et 1)
+
     back_row = [ROOK, KNIGHT, BISHOP, QUEEN, KING, BISHOP, KNIGHT, ROOK]
     for col, piece in enumerate(back_row):
         board[0][col] = piece
         board[1][col] = PAWN
-    # Pièces noires (rangée 7 et 6)
+
     for col, piece in enumerate(back_row):
         board[7][col] = -piece
         board[6][col] = -PAWN
@@ -35,12 +35,12 @@ def initial_board():
 class BoardState:
     def __init__(self):
         self.board = initial_board()
-        self.current_player = 1  # 1 = blancs, -1 = noirs
+        self.current_player = 1 
         self.castling_rights = {
-            'K': True, 'Q': True,   # blancs
-            'k': True, 'q': True,   # noirs
+            'K': True, 'Q': True,   
+            'k': True, 'q': True,   
         }
-        self.en_passant_target = None  # case cible pour prise en passant
+        self.en_passant_target = None  
         self.halfmove_clock = 0
         self.fullmove_number = 1
         self.move_history = []
@@ -70,40 +70,39 @@ class BoardState:
 
         self.move_history.append((move, self.castling_rights.copy(), self.en_passant_target, self.halfmove_clock))
 
-        # Horloge des demi-coups
+      
         if abs(piece) == PAWN or captured != EMPTY:
             self.halfmove_clock = 0
         else:
             self.halfmove_clock += 1
 
-        # Prise en passant
+        
         new_ep = None
         if abs(piece) == PAWN and abs(tr - fr) == 2:
             new_ep = ((fr + tr) // 2, fc)
 
         if abs(piece) == PAWN and self.en_passant_target == (tr, tc):
-            # Capturer le pion adverse
+          
             dir = 1 if self.current_player == 1 else -1
             self.board[tr - dir][tc] = EMPTY
 
-        # Roque
+        
         if abs(piece) == KING:
-            if fc == 4 and tc == 6:  # petit roque
+            if fc == 4 and tc == 6:  
                 self.board[fr][5] = self.board[fr][7]
                 self.board[fr][7] = EMPTY
-            elif fc == 4 and tc == 2:  # grand roque
+            elif fc == 4 and tc == 2:  
                 self.board[fr][3] = self.board[fr][0]
                 self.board[fr][0] = EMPTY
 
-        # Déplacement principal
+        
         self.board[tr][tc] = piece
         self.board[fr][fc] = EMPTY
 
-        # Promotion
         if abs(piece) == PAWN and (tr == 7 or tr == 0):
             self.board[tr][tc] = (promo if promo else QUEEN) * self.current_player
 
-        # Mise à jour des droits de roque
+    
         if piece == KING:
             self.castling_rights['K'] = False
             self.castling_rights['Q'] = False
