@@ -112,12 +112,22 @@ def mode_watch():
         state.apply_move(move)
         time.sleep(0.3)
 
+def mode_gui():
+    """Interface graphique pygame."""
+    from view.gui_view import run_gui
+    from model.neural_net import ChessNet
+    from controller.trainer import load_model
+    net = ChessNet()
+    load_model(net)
+    run_gui(net)
+
 if __name__ == "__main__":
     if len(sys.argv) < 2:
-        print("Usage : python main.py [train | play | watch]")
+        print("Usage : python main.py [train | play | watch | gui]")
         print("  train  — entraîner l'IA par self-play")
-        print("  play   — jouer contre l'IA")
-        print("  watch  — regarder l'IA jouer contre elle-même")
+        print("  play   — jouer contre l'IA (terminal)")
+        print("  watch  — regarder l'IA jouer (terminal)")
+        print("  gui    — interface graphique (recommandé)")
         sys.exit(0)
 
     mode = sys.argv[1].lower()
@@ -127,6 +137,8 @@ if __name__ == "__main__":
         mode_play()
     elif mode == "watch":
         mode_watch()
+    elif mode == "gui":
+        mode_gui()
     else:
         print(f"Mode inconnu : {mode}")
         sys.exit(1)
