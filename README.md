@@ -1,15 +1,48 @@
+<<<<<<< HEAD
+♟️ README — Projet Python : Système d’Apprentissage pour un Jeu d’Échecs
+📌 Description
+
+Ce projet a pour objectif de créer un système d’apprentissage automatique permettant à un ordinateur de jouer aux échecs.
+Le programme utilise Python pour entraîner une intelligence artificielle capable d’analyser des positions, apprendre des stratégies et améliorer son niveau de jeu au fil des parties.
+=======
 # CheckersMind — Jeu de dames avec apprentissage par renforcement
 
 Moteur de jeu de dames 10×10 (règles internationales) en Python, avec entraînement AlphaZero-style.
+>>>>>>> 4d4ea74bdce82990b322403496f2fdcad8c0d8a4
 
-## Installation
+Le projet peut évoluer vers :
 
+<<<<<<< HEAD
+un moteur d’échecs simple,
+un système basé sur le machine learning,
+ou une IA utilisant du reinforcement learning.
+=======
 ```bash
 pip install torch numpy
 ```
+>>>>>>> 4d4ea74bdce82990b322403496f2fdcad8c0d8a4
 
-## Utilisation
 
+<<<<<<< HEAD
+ Fonctionnalités :
+Génération et gestion du plateau d’échecs
+Validation des coups
+Système de parties IA vs IA
+Enregistrement des parties
+Évaluation des positions
+Entraînement automatique du modèle
+Possibilité d’affronter l’IA
+Support des modèles d’apprentissage
+
+
+ Technologies utilisées :
+Python 3.x
+Bibliothèque python-chess
+NumPy
+PyTorch ou TensorFlow
+Matplotlib
+Stockfish (optionnel pour l’analyse)
+=======
 Depuis le dossier `checkersmind/` :
 
 ```bash
@@ -59,3 +92,4 @@ checkersmind/
 - Tronc : 1 convolution + 6 blocs résiduels (64 filtres)
 - Tête valeur : score [-1, 1]
 - Tête politique : distribution sur 10 000 coups encodés (case départ × case arrivée)
+>>>>>>> 4d4ea74bdce82990b322403496f2fdcad8c0d8a4
