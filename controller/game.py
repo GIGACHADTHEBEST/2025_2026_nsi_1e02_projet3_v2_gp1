@@ -1,53 +1,28 @@
-from model.board import BoardState
-from model.rules import legal_moves, is_checkmate, is_draw
+from model.rules import legal_moves, is_game_over, get_winner
 
-MAX_MOVES = 300  # Limite pour éviter les parties infinies
 
 class Game:
-    def __init__(self, white_agent, black_agent, view=None):
-        """
-        white_agent, black_agent : objets avec une méthode select_move(state, moves)
-        view : optionnel, objet d'affichage
-        """
-        self.white_agent = white_agent
-        self.black_agent = black_agent
-        self.view = view
+    def __init__(self, agent_white, agent_black):
+        self.agents = {1: agent_white, -1: agent_black}
 
-    def play(self):
+    def run(self, state, max_moves=300, verbose=False, on_move=None):
         """
         Joue une partie complète.
-        Retourne (result, history) où result = 1 (blancs), -1 (noirs), 0 (nulle)
-        et history = liste de (state_encoded, move, player)
+        on_move(state, move) : callback optionnel après chaque coup (pour l'interface web).
         """
-        state = BoardState()
-        history = []
-        move_count = 0
-
-        while True:
-            if self.view:
-                self.view.draw(state)
-
+        from view.terminal_view import display_board, move_to_notation
+        n = 0
+        while not is_game_over(state) and n < max_moves:
             moves = legal_moves(state)
-
-            if is_checkmate(state):
-                result = -state.current_player  # le joueur qui n'a pas le trait gagne
-                if self.view:
-                    self.view.draw(state)
-                    from view.terminal_view import display_result
-                    display_result(result)
-                return result, history
-
-            if is_draw(state) or move_count >= MAX_MOVES:
-                if self.view:
-                    from view.terminal_view import display_result
-                    display_result(0)
-                return 0, history
-
-            agent = self.white_agent if state.current_player == 1 else self.black_agent
-            move = agent.select_move(state, moves)
-
-            history.append((state.copy(), move, state.current_player))
+            if not moves:
+                break
+            agent = self.agents[state.current_player]
+            move  = agent.select_move(state, moves)
+            if verbose:
+                display_board(state)
+                print(f"  -> {move_to_notation(move)}")
             state.apply_move(move)
-            move_count += 1
-
-        return 0, history
+            if on_move:
+                on_move(state, move)
+            n += 1
+        return get_winner(state)
