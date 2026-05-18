@@ -1,130 +1,181 @@
-import copy
-
+import numpy as np
+import torch
+import torch.nn as nn
+import torch.nn.functional as F
 
 EMPTY = 0
-PAWN   = 1
-KNIGHT = 2
-BISHOP = 3
-ROOK   = 4
-QUEEN  = 5
-KING   = 6
+MAN   = 1
+KING  = 2
 
-PIECE_SYMBOLS = {
-    0: '.',
-    1: 'P', -1: 'p',
-    2: 'N', -2: 'n',
-    3: 'B', -3: 'b',
-    4: 'R', -4: 'r',
-    5: 'Q', -5: 'q',
-    6: 'K', -6: 'k',
-}
+PIECE_SYMBOLS = {0: '.', 1: 'b', -1: 'n', 2: 'B', -2: 'N'}
+
 
 def initial_board():
-    board = [[0]*8 for _ in range(8)]
-
-    back_row = [ROOK, KNIGHT, BISHOP, QUEEN, KING, BISHOP, KNIGHT, ROOK]
-    for col, piece in enumerate(back_row):
-        board[0][col] = piece
-        board[1][col] = PAWN
-
-    for col, piece in enumerate(back_row):
-        board[7][col] = -piece
-        board[6][col] = -PAWN
+    board = [[0] * 10 for _ in range(10)]
+    for r in range(10):
+        for c in range(10):
+            if (r + c) % 2 == 1:
+                if r < 4:
+                    board[r][c] = -MAN
+                elif r > 5:
+                    board[r][c] = MAN
     return board
+
 
 class BoardState:
     def __init__(self):
         self.board = initial_board()
-        self.current_player = 1 
-        self.castling_rights = {
-            'K': True, 'Q': True,   
-            'k': True, 'q': True,   
-        }
-        self.en_passant_target = None  
-        self.halfmove_clock = 0
-        self.fullmove_number = 1
+        self.current_player = 1
         self.move_history = []
+        self.no_capture_count = 0  # Pour la règle de nulle
 
     def copy(self):
         new = BoardState.__new__(BoardState)
         new.board = [row[:] for row in self.board]
         new.current_player = self.current_player
-        new.castling_rights = self.castling_rights.copy()
-        new.en_passant_target = self.en_passant_target
-        new.halfmove_clock = self.halfmove_clock
-        new.fullmove_number = self.fullmove_number
         new.move_history = self.move_history[:]
+        new.no_capture_count = self.no_capture_count
         return new
 
-    def get_piece(self, row, col):
-        return self.board[row][col]
-
-    def set_piece(self, row, col, piece):
-        self.board[row][col] = piece
-
     def apply_move(self, move):
-        """Applique un coup (from_sq, to_sq, promotion) sur le plateau."""
-        (fr, fc), (tr, tc), promo = move
-        piece = self.board[fr][fc]
-        captured = self.board[tr][tc]
+        self.move_history.append((move, self.current_player))
+        path = move
+        r0, c0 = path[0]
+        piece = self.board[r0][c0]
+        captured = False
 
-        self.move_history.append((move, self.castling_rights.copy(), self.en_passant_target, self.halfmove_clock))
+        for i in range(len(path) - 1):
+            r1, c1 = path[i]
+            r2, c2 = path[i + 1]
+            mid_r = (r1 + r2) // 2
+            mid_c = (c1 + c2) // 2
+            if abs(r2 - r1) == 2:
+                self.board[mid_r][mid_c] = EMPTY
+                captured = True
 
-      
-        if abs(piece) == PAWN or captured != EMPTY:
-            self.halfmove_clock = 0
-        else:
-            self.halfmove_clock += 1
+        rf, cf = path[-1]
+        self.board[rf][cf] = piece
+        self.board[r0][c0] = EMPTY
 
-        
-        new_ep = None
-        if abs(piece) == PAWN and abs(tr - fr) == 2:
-            new_ep = ((fr + tr) // 2, fc)
+        if abs(piece) == MAN:
+            if piece == MAN and rf == 0:
+                self.board[rf][cf] = KING
+            elif piece == -MAN and rf == 9:
+                self.board[rf][cf] = -KING
 
-        if abs(piece) == PAWN and self.en_passant_target == (tr, tc):
-          
-            dir = 1 if self.current_player == 1 else -1
-            self.board[tr - dir][tc] = EMPTY
-
-        
-        if abs(piece) == KING:
-            if fc == 4 and tc == 6:  
-                self.board[fr][5] = self.board[fr][7]
-                self.board[fr][7] = EMPTY
-            elif fc == 4 and tc == 2:  
-                self.board[fr][3] = self.board[fr][0]
-                self.board[fr][0] = EMPTY
-
-        
-        self.board[tr][tc] = piece
-        self.board[fr][fc] = EMPTY
-
-        if abs(piece) == PAWN and (tr == 7 or tr == 0):
-            self.board[tr][tc] = (promo if promo else QUEEN) * self.current_player
-
-    
-        if piece == KING:
-            self.castling_rights['K'] = False
-            self.castling_rights['Q'] = False
-        elif piece == -KING:
-            self.castling_rights['k'] = False
-            self.castling_rights['q'] = False
-        if (fr, fc) == (0, 7) or (tr, tc) == (0, 7): self.castling_rights['K'] = False
-        if (fr, fc) == (0, 0) or (tr, tc) == (0, 0): self.castling_rights['Q'] = False
-        if (fr, fc) == (7, 7) or (tr, tc) == (7, 7): self.castling_rights['k'] = False
-        if (fr, fc) == (7, 0) or (tr, tc) == (7, 0): self.castling_rights['q'] = False
-
-        self.en_passant_target = new_ep
-        if self.current_player == -1:
-            self.fullmove_number += 1
+        self.no_capture_count = 0 if captured else self.no_capture_count + 1
         self.current_player *= -1
+
+    def count_pieces(self):
+        whites = blacks = 0
+        for r in range(10):
+            for c in range(10):
+                p = self.board[r][c]
+                if p > 0: whites += 1
+                elif p < 0: blacks += 1
+        return whites, blacks
+
+    def is_draw_by_repetition(self):
+        return self.no_capture_count >= 50
+
+    def to_dict(self):
+        """Sérialise pour l'API web."""
+        return {
+            'board': self.board,
+            'current_player': self.current_player,
+            'no_capture_count': self.no_capture_count,
+        }
 
     def __repr__(self):
         lines = []
-        for row in reversed(range(8)):
-            line = f"{row+1} "
-            for col in range(8):
-                line += PIECE_SYMBOLS.get(self.board[row][col], '?') + ' '
+        for r in range(10):
+            line = f"{r:2} "
+            for c in range(10):
+                line += PIECE_SYMBOLS.get(self.board[r][c], '?') + ' '
             lines.append(line)
-        lines.append("  a b c d e f g h")
+        lines.append("   " + " ".join(str(c) for c in range(10)))
         return '\n'.join(lines)
+
+
+# ─── Encodage ──────────────────────────────────────────────────────────────
+
+def encode_board(state, from_player=None):
+    """
+    Tenseur (5, 10, 10) :
+      0: pions joueur courant
+      1: dames joueur courant
+      2: pions adversaire
+      3: dames adversaire
+      4: plan constant = current_player (pour que le réseau sache qui joue)
+    """
+    player = from_player or state.current_player
+    tensor = np.zeros((5, 10, 10), dtype=np.float32)
+    for r in range(10):
+        for c in range(10):
+            p = state.board[r][c]
+            if p == player * MAN:     tensor[0, r, c] = 1.0
+            elif p == player * KING:  tensor[1, r, c] = 1.0
+            elif p == -player * MAN:  tensor[2, r, c] = 1.0
+            elif p == -player * KING: tensor[3, r, c] = 1.0
+    tensor[4, :, :] = 1.0 if player == 1 else 0.0
+    return tensor
+
+
+# ─── Réseau ────────────────────────────────────────────────────────────────
+
+class ResidualBlock(nn.Module):
+    def __init__(self, channels):
+        super().__init__()
+        self.conv1 = nn.Conv2d(channels, channels, 3, padding=1)
+        self.bn1   = nn.BatchNorm2d(channels)
+        self.conv2 = nn.Conv2d(channels, channels, 3, padding=1)
+        self.bn2   = nn.BatchNorm2d(channels)
+
+    def forward(self, x):
+        res = x
+        x = F.relu(self.bn1(self.conv1(x)))
+        x = self.bn2(self.conv2(x))
+        return F.relu(x + res)
+
+
+class CheckersNet(nn.Module):
+    NUM_MOVES = 10 * 10 * 10 * 10  # 10 000
+
+    def __init__(self, in_channels=5, num_filters=128, num_res_blocks=10):
+        super().__init__()
+        self.conv_input = nn.Conv2d(in_channels, num_filters, 3, padding=1)
+        self.bn_input   = nn.BatchNorm2d(num_filters)
+        self.res_blocks = nn.Sequential(
+            *[ResidualBlock(num_filters) for _ in range(num_res_blocks)]
+        )
+        # Value head
+        self.value_conv = nn.Conv2d(num_filters, 1, 1)
+        self.value_bn   = nn.BatchNorm2d(1)
+        self.value_fc1  = nn.Linear(100, 256)
+        self.value_fc2  = nn.Linear(256, 1)
+        # Policy head
+        self.policy_conv = nn.Conv2d(num_filters, 2, 1)
+        self.policy_bn   = nn.BatchNorm2d(2)
+        self.policy_fc   = nn.Linear(200, self.NUM_MOVES)
+
+    def forward(self, x):
+        x = F.relu(self.bn_input(self.conv_input(x)))
+        x = self.res_blocks(x)
+
+        v = F.relu(self.value_bn(self.value_conv(x)))
+        v = v.view(v.size(0), -1)
+        v = F.relu(self.value_fc1(v))
+        v = torch.tanh(self.value_fc2(v))
+
+        p = F.relu(self.policy_bn(self.policy_conv(x)))
+        p = p.view(p.size(0), -1)
+        p = self.policy_fc(p)
+        p = F.log_softmax(p, dim=1)
+
+        return v, p
+
+
+def move_to_index(move):
+    r0, c0 = move[0]
+    rf, cf = move[-1]
+    return (r0 * 10 + c0) * 100 + (rf * 10 + cf)
