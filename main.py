@@ -2,12 +2,12 @@ import sys
 import os
 sys.path.insert(0, os.path.dirname(__file__))
 
-from model.board import BoardState, CheckersNet
-from model.rules import legal_moves, is_game_over, get_winner
-from controller.self_play import run_self_play, NeuralAgent, RandomAgent
-from controller.trainer import train, save_model, load_model
-from controller.game import Game
-from view.terminal_view import display_board, display_result, move_to_notation, notation_to_move
+from board import BoardState, CheckersNet
+from rules import legal_moves, is_game_over, get_winner
+from self_play import run_self_play, NeuralAgent, RandomAgent
+from trainer import train, save_model, load_model
+from game import Game
+from terminal_view import display_board, display_result, move_to_notation, notation_to_move
 
 # ──────────────────────────────────────────────
 # CONFIGURATION
