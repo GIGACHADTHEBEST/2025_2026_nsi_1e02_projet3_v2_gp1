@@ -1,12 +1,8 @@
 """
 VIEW : vue_principale.py
 ========================
-Interface graphique Tkinter du jeu de dames.
-Règles MVC strictes :
-  - La vue NE connaît PAS le modèle Plateau directement
-    (elle reçoit des données formatées par le contrôleur).
-  - Elle expose une interface publique appelée par le contrôleur.
-  - Elle délègue tous les événements au contrôleur.
+Interface graphique Tkinter — Dames internationales 10×10.
+Règles MVC strictes : la vue ne connaît pas le modèle Plateau.
 
 Esthétique : bois sombre et or — élégant, intemporel.
 """
@@ -18,35 +14,36 @@ from model.plateau import Plateau, BLANC, NOIR, DAME_B, DAME_N, N
 
 # ── Palette ──────────────────────────────────────────────────────────────────
 C = {
-    "bg"           : "#1A1714",
-    "panel"        : "#211E1B",
-    "case_claire"  : "#E8C98A",
-    "case_foncee"  : "#8B5E3C",
-    "sel"          : "#F5E642",
-    "dest"         : "#9DC13B",
-    "dernierCoup"  : "#4DA6D8",
-    "pion_b_fill"  : "#F2EDE4",
-    "pion_b_bord"  : "#9A9080",
-    "pion_n_fill"  : "#1C1C1C",
-    "pion_n_bord"  : "#000000",
-    "or"           : "#C9993A",
-    "or_clair"     : "#E8C065",
-    "texte"        : "#E8E0D0",
-    "texte_dim"    : "#7A7060",
-    "vert"         : "#5A9A4A",
-    "rouge"        : "#9A3A3A",
-    "sep"          : "#3A3530",
+    "bg"          : "#1A1714",
+    "panel"       : "#211E1B",
+    "case_claire" : "#E8C98A",
+    "case_foncee" : "#8B5E3C",
+    "sel"         : "#F5E642",
+    "dest"        : "#9DC13B",
+    "dernierCoup" : "#4DA6D8",
+    "pion_b_fill" : "#F2EDE4",
+    "pion_b_bord" : "#9A9080",
+    "pion_n_fill" : "#1C1C1C",
+    "pion_n_bord" : "#000000",
+    "or"          : "#C9993A",
+    "or_clair"    : "#E8C065",
+    "texte"       : "#E8E0D0",
+    "texte_dim"   : "#7A7060",
+    "vert"        : "#5A9A4A",
+    "rouge"       : "#9A3A3A",
+    "sep"         : "#3A3530",
 }
 
-SZ  = 70   # taille d'une case en pixels
+SZ  = 62   # taille d'une case (réduite pour loger 10 colonnes confortablement)
 PAD = SZ * N
+
 
 class VuePrincipale:
     """Vue principale — interface publique pour le contrôleur."""
 
     def __init__(self, root: tk.Tk):
         self.root = root
-        self.root.title("Jeu de Dames · IA Q-Learning")
+        self.root.title("Jeu de Dames Internationales · 10×10 · IA Q-Learning")
         self.root.configure(bg=C["bg"])
         self.root.resizable(False, False)
         self.controller = None
@@ -69,83 +66,126 @@ class VuePrincipale:
     def _build_header(self):
         f = tk.Frame(self.root, bg=C["bg"])
         f.pack(pady=(14, 4))
-        tk.Label(f, text="JEUX DE DAMES",
-                 font=("Palatino Linotype", 24, "bold"),
+        tk.Label(f, text="DAMES INTERNATIONALES",
+                 font=("Palatino Linotype", 22, "bold"),
                  fg=C["or_clair"], bg=C["bg"]).pack()
-        tk.Label(f, text="Intelligence Artificielle  ·  Q-Learning",
+        tk.Label(f, text="Plateau 10×10 · Règles FMJD · IA Q-Learning",
                  font=("Courier New", 10), fg=C["texte_dim"], bg=C["bg"]).pack()
 
     def _build_board(self, parent):
         wrap = tk.Frame(parent, bg=C["bg"])
         wrap.grid(row=0, column=0, padx=(0, 16), pady=8)
 
-        # Repères colonnes (a-h)
+        # Repères colonnes (a–j)
         top_coords = tk.Frame(wrap, bg=C["bg"])
         top_coords.pack()
-        tk.Label(top_coords, text="  ", bg=C["bg"]).pack(side="left")
+        tk.Label(top_coords, text="   ", bg=C["bg"]).pack(side="left")
         for c in range(N):
-            tk.Label(top_coords, text=chr(ord('a')+c), width=int(SZ/9)+1,
-                     font=("Courier New", 10), fg=C["texte_dim"],
+            tk.Label(top_coords, text=chr(ord('a') + c),
+                     width=int(SZ / 9) + 1,
+                     font=("Courier New", 9), fg=C["texte_dim"],
                      bg=C["bg"]).pack(side="left")
 
         row_wrap = tk.Frame(wrap, bg=C["bg"])
         row_wrap.pack()
 
-        # Repères lignes (8-1)
+        # Repères lignes (10-1)
         self._row_labels = tk.Frame(row_wrap, bg=C["bg"])
         self._row_labels.pack(side="left")
         for i in range(N):
-            tk.Label(self._row_labels, text=str(N-i), width=2,
-                     font=("Courier New", 10), fg=C["texte_dim"],
+            tk.Label(self._row_labels, text=str(N - i), width=2,
+                     font=("Courier New", 9), fg=C["texte_dim"],
                      bg=C["bg"]).pack(expand=True, fill="y")
 
         # Canvas principal
         self.canvas = tk.Canvas(row_wrap, width=PAD, height=PAD,
-                                 highlightthickness=2,
-                                 highlightbackground=C["or"])
+                                highlightthickness=2,
+                                highlightbackground=C["or"])
         self.canvas.pack(side="left")
         self.canvas.bind("<Button-1>", self._on_clic)
 
     def _build_sidebar(self, parent):
-        self.sidebar = tk.Frame(parent, bg=C["panel"], width=270,
-                                 bd=0, relief="flat")
-        self.sidebar.grid(row=0, column=1, sticky="ns", pady=8)
-        self.sidebar.pack_propagate(False)
+        # Conteneur externe avec scrollbar
+        outer = tk.Frame(parent, bg=C["panel"], width=280)
+        outer.grid(row=0, column=1, sticky="ns", pady=8)
+        outer.pack_propagate(False)
+        outer.grid_propagate(False)
 
-        sp = {"padx": 16, "pady": 5}
+        sb_canvas = tk.Canvas(outer, bg=C["panel"], width=258,
+                              highlightthickness=0)
+        scrollbar = tk.Scrollbar(outer, orient="vertical",
+                                 command=sb_canvas.yview)
+        sb_canvas.configure(yscrollcommand=scrollbar.set)
 
-        # ── Scores ──────────────────────────────────────────────
+        scrollbar.pack(side="right", fill="y")
+        sb_canvas.pack(side="left", fill="both", expand=True)
+
+        self.sidebar = tk.Frame(sb_canvas, bg=C["panel"])
+        win_id = sb_canvas.create_window((0, 0), window=self.sidebar,
+                                          anchor="nw")
+
+        def _on_configure(e):
+            sb_canvas.configure(scrollregion=sb_canvas.bbox("all"))
+            sb_canvas.itemconfig(win_id, width=sb_canvas.winfo_width())
+
+        self.sidebar.bind("<Configure>", _on_configure)
+
+        # Scroll molette (Windows/Mac)
+        def _on_mousewheel(e):
+            sb_canvas.yview_scroll(int(-1 * (e.delta / 120)), "units")
+        sb_canvas.bind_all("<MouseWheel>", _on_mousewheel)
+
+        sp = {"padx": 16, "pady": 4}
+
+        # ── Scores ──────────────────────────────────────────────────────
         self._section("SCORES", self.sidebar)
         sf = tk.Frame(self.sidebar, bg=C["panel"])
         sf.pack(**sp)
-        self.lbl_sc_b = self._score_badge(sf, "⬜ Blancs", "12")
+        self.lbl_sc_b = self._score_badge(sf, "⬜ Blancs", "20")
         self.lbl_sc_b.grid(row=0, column=0, padx=6)
-        self.lbl_sc_n = self._score_badge(sf, "⬛ Noirs", "12")
+        self.lbl_sc_n = self._score_badge(sf, "⬛ Noirs", "20")
         self.lbl_sc_n.grid(row=0, column=1, padx=6)
 
-        # Tour actuel
         self.lbl_tour = tk.Label(self.sidebar, text="Tour : —",
-                                  font=("Courier New", 10, "bold"),
-                                  fg=C["or"], bg=C["panel"])
+                                 font=("Courier New", 10, "bold"),
+                                 fg=C["or"], bg=C["panel"])
         self.lbl_tour.pack(**sp)
 
         self._sep(self.sidebar)
 
-        # ── Mode ────────────────────────────────────────────────
+        # ── Règles (rappel) ──────────────────────────────────────────────
+        self._section("RÈGLES FMJD", self.sidebar)
+        regles = (
+            "• Plateau 10×10 · 20 pions/camp\n"
+            "• Prise obligatoire\n"
+            "• Prise maximale obligatoire\n"
+            "• Prise arrière (pions)\n"
+            "• Dame : vol libre\n"
+            "• Promotion après la rafle"
+        )
+        tk.Label(self.sidebar, text=regles,
+                 font=("Courier New", 8), fg=C["texte_dim"],
+                 bg=C["panel"], justify="left").pack(padx=16, pady=(0, 4),
+                                                     anchor="w")
+
+        self._sep(self.sidebar)
+
+        # ── Mode ────────────────────────────────────────────────────────
         self._section("MODE DE JEU", self.sidebar)
         self.var_mode = tk.StringVar(value="humain_vs_ia")
         for txt, val in [("👤  Joueur (Blancs) vs IA", "humain_vs_ia"),
-                          ("🤖  IA vs IA  (visible)", "ia_vs_ia")]:
+                         ("🤖  IA vs IA  (visible)", "ia_vs_ia")]:
             tk.Radiobutton(self.sidebar, text=txt, variable=self.var_mode,
                            value=val, bg=C["panel"], fg=C["texte"],
                            selectcolor=C["bg"], activebackground=C["panel"],
                            font=("Courier New", 10)).pack(anchor="w", padx=16)
         self._bouton("▶  Nouvelle partie", self._on_nouvelle_partie,
-                     self.sidebar, C["or"]).pack(**sp, fill="x", pady=(8,4))
+                     self.sidebar, C["or"]).pack(padx=16, fill="x",
+                                                  pady=(8, 4))
 
         self._sep(self.sidebar)
 
-        # ── Entraînement ─────────────────────────────────────────
+        # ── Entraînement ─────────────────────────────────────────────────
         self._section("ENTRAÎNEMENT RAPIDE", self.sidebar)
         ef = tk.Frame(self.sidebar, bg=C["panel"])
         ef.pack(**sp, fill="x")
@@ -159,13 +199,14 @@ class VuePrincipale:
                    font=("Courier New", 10)).pack(side="left", padx=8)
 
         self._bouton("⚡  Lancer entraînement", self._on_entrainement,
-                     self.sidebar, "#5A3E10").pack(**sp, fill="x")
+                     self.sidebar, "#5A3E10").pack(padx=16, fill="x",
+                                                    pady=(0, 6))
         self.pb = ttk.Progressbar(self.sidebar, mode="determinate", length=230)
         self.pb.pack(**sp, fill="x")
 
         self._sep(self.sidebar)
 
-        # ── Stats ────────────────────────────────────────────────
+        # ── Stats ────────────────────────────────────────────────────────
         self._section("STATISTIQUES IA", self.sidebar)
         self.txt_stats = tk.Text(self.sidebar, height=11, width=28,
                                   bg="#111", fg="#8DC88A",
@@ -178,14 +219,14 @@ class VuePrincipale:
 
         self._sep(self.sidebar)
         self._bouton("🗑  Réinitialiser l'IA", self._on_reset,
-                     self.sidebar, "#3A1010").pack(**sp, fill="x", pady=(0,14))
+                     self.sidebar, "#3A1010").pack(**sp, fill="x")
 
     def _build_footer(self):
         self.lbl_msg = tk.Label(
             self.root,
             text="Bienvenue ! Choisissez un mode puis lancez une partie.",
             font=("Palatino Linotype", 11, "italic"),
-            fg=C["or_clair"], bg=C["bg"], wraplength=740)
+            fg=C["or_clair"], bg=C["bg"], wraplength=800)
         self.lbl_msg.pack(pady=(2, 14))
 
     # ════════════════════════════════════════════════════════════════════════
@@ -193,17 +234,16 @@ class VuePrincipale:
     # ════════════════════════════════════════════════════════════════════════
 
     def rafraichir_plateau(self, plateau: Plateau,
-                            sel=None, destinations=None,
-                            dernier_coup=None):
-        """Redessine entièrement le plateau."""
+                           sel=None, destinations=None,
+                           dernier_coup=None):
         self.canvas.delete("all")
-        dests = set(destinations or [])
+        dests   = set(destinations or [])
         dernier = set(dernier_coup or [])
 
         for l in range(N):
             for c in range(N):
-                x1, y1 = c*SZ, l*SZ
-                x2, y2 = x1+SZ, y1+SZ
+                x1, y1 = c * SZ, l * SZ
+                x2, y2 = x1 + SZ, y1 + SZ
                 pos = (l, c)
 
                 if sel and pos == sel:
@@ -212,48 +252,48 @@ class VuePrincipale:
                     bg = C["dest"]
                 elif pos in dernier:
                     bg = C["dernierCoup"]
-                elif (l+c) % 2 == 0:
+                elif (l + c) % 2 == 0:
                     bg = C["case_claire"]
                 else:
                     bg = C["case_foncee"]
 
                 self.canvas.create_rectangle(x1, y1, x2, y2,
-                                              fill=bg, outline="")
+                                             fill=bg, outline="")
 
-                # Point de destination
                 if pos in dests:
-                    cx, cy = x1+SZ//2, y1+SZ//2
-                    self.canvas.create_oval(cx-9, cy-9, cx+9, cy+9,
-                                             fill="#6A9A20", outline="")
+                    cx, cy = x1 + SZ // 2, y1 + SZ // 2
+                    self.canvas.create_oval(cx - 8, cy - 8, cx + 8, cy + 8,
+                                            fill="#6A9A20", outline="")
 
-                # Pion
                 v = plateau.grille[l][c]
                 if v:
                     self._draw_piece(l, c, v)
 
     def _draw_piece(self, l: int, c: int, v: int):
-        cx = c*SZ + SZ//2
-        cy = l*SZ + SZ//2
-        r  = SZ//2 - 7
+        cx = c * SZ + SZ // 2
+        cy = l * SZ + SZ // 2
+        r  = SZ // 2 - 6
         blanc = v in (BLANC, DAME_B)
         fill  = C["pion_b_fill"] if blanc else C["pion_n_fill"]
         bord  = C["pion_b_bord"] if blanc else C["pion_n_bord"]
         hl    = "#EEEEEE"        if blanc else "#3A3A3A"
 
         # Ombre
-        self.canvas.create_oval(cx-r+3, cy-r+3, cx+r+3, cy+r+3,
-                                  fill="#00000066", outline="")
+        self.canvas.create_oval(cx - r + 2, cy - r + 2,
+                                cx + r + 2, cy + r + 2,
+                                fill="#2B2B2B", outline="")
         # Corps
-        self.canvas.create_oval(cx-r, cy-r, cx+r, cy+r,
-                                  fill=fill, outline=bord, width=2)
+        self.canvas.create_oval(cx - r, cy - r, cx + r, cy + r,
+                                fill=fill, outline=bord, width=2)
         # Reflet
-        self.canvas.create_oval(cx-r+5, cy-r+5, cx-r+14, cy-r+14,
-                                  fill=hl, outline="")
+        self.canvas.create_oval(cx - r + 4, cy - r + 4,
+                                cx - r + 12, cy - r + 12,
+                                fill=hl, outline="")
         # Couronne dame
         if v in (DAME_B, DAME_N):
             self.canvas.create_text(cx, cy, text="♛",
-                                     font=("Arial", int(SZ*0.32), "bold"),
-                                     fill=C["or"])
+                                    font=("Arial", int(SZ * 0.30), "bold"),
+                                    fill=C["or"])
 
     def maj_scores(self, score_blanc: int, score_noir: int):
         self.lbl_sc_b.config(text=f"⬜ Blancs\n{score_blanc} pts")
@@ -273,11 +313,12 @@ class VuePrincipale:
             f"Gagnant : {nom}\n\n"
             f"Score Blancs : {score_blanc} pt(s)\n"
             f"Score Noirs  : {score_noir} pt(s)\n\n"
-            f"Rappel : 1 pion = 1 pt, 1 dame = 3 pts")
+            f"Rappel : 1 pion = 1 pt · 1 dame = 3 pts\n"
+            f"Règles FMJD — Dames Internationales 10×10")
 
     def maj_progress_entrainement(self, i: int, total: int,
-                                   stats_b: dict, stats_n: dict,
-                                   termine: bool = False):
+                                  stats_b: dict, stats_n: dict,
+                                  termine: bool = False):
         self.pb["maximum"] = total
         self.pb["value"]   = i
         if termine:
@@ -335,7 +376,7 @@ class VuePrincipale:
 
     def _on_reset(self):
         if messagebox.askyesno("Réinitialiser",
-                                "Effacer tout l'apprentissage des IA ?"):
+                               "Effacer tout l'apprentissage des IA ?"):
             if self.controller:
                 self.controller.reset_ia()
                 self.set_message("IA remise à zéro.")

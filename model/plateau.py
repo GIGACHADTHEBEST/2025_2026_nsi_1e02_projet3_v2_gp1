@@ -1,10 +1,20 @@
 """
 MODEL : plateau.py
 ==================
-Représente l'état du jeu de dames.
-Aucune dépendance vers la vue ou le contrôleur (règle MVC stricte).
+Représente l'état du jeu de dames INTERNATIONALES (10×10).
+Règles FMJD (Fédération Mondiale du Jeu de Dames) strictes :
 
-Système de points : 1 pion = 1 point, 1 dame = 3 points.
+  ✔ Plateau 10×10 — 20 pions par camp
+  ✔ Prise obligatoire
+  ✔ Prise MAXIMALE obligatoire (la rafle qui capture le plus de pions)
+  ✔ Prise arrière pour les pions simples
+  ✔ Dame à vol libre (se déplace sur toute une diagonale)
+  ✔ Capture à vol libre (la dame saute une pièce adverse et peut s'arrêter
+    sur n'importe quelle case libre derrière elle)
+  ✔ Pas de promotion en cours de rafle (le pion promu continue comme pion)
+  ✔ Système de points : 1 pion = 1 pt, 1 dame = 3 pts
+
+Aucune dépendance vers la vue ou le contrôleur (règle MVC stricte).
 """
 
 from __future__ import annotations
@@ -12,15 +22,15 @@ from copy import deepcopy
 from typing import List, Tuple, Optional
 
 # ── Constantes ──────────────────────────────────────────────────────────────
-VIDE       = 0
-BLANC      = 1   # joueur humain
-NOIR       = 2   # IA
-DAME_B     = 3
-DAME_N     = 4
-N          = 8   # taille du plateau
+VIDE   = 0
+BLANC  = 1   # joueur humain
+NOIR   = 2   # IA
+DAME_B = 3
+DAME_N = 4
+N      = 10  # plateau 10×10
 
-VALEUR_PION  = 1
-VALEUR_DAME  = 3
+VALEUR_PION = 1
+VALEUR_DAME = 3
 
 Chemin = List[Tuple[int, int]]
 
@@ -30,10 +40,10 @@ class Pion:
     __slots__ = ("couleur", "ligne", "col", "est_dame")
 
     def __init__(self, couleur: int, ligne: int, col: int):
-        self.couleur   = couleur
-        self.ligne     = ligne
-        self.col       = col
-        self.est_dame  = False
+        self.couleur  = couleur
+        self.ligne    = ligne
+        self.col      = col
+        self.est_dame = False
 
     @property
     def valeur(self) -> int:
@@ -52,8 +62,7 @@ class Pion:
 
 class Plateau:
     """
-    Modèle pur du plateau de jeu de dames.
-    Contient : grille, pions, règles (mouvements, captures, promotion).
+    Modèle pur du plateau de dames internationales (10×10 FMJD).
     """
 
     def __init__(self):
@@ -63,13 +72,18 @@ class Plateau:
 
     # ── Initialisation ──────────────────────────────────────────────────────
     def _initialiser(self):
-        for l in range(3):
+        """
+        Dames internationales : 4 premières rangées pour les Noirs,
+        4 dernières pour les Blancs, cases foncées uniquement.
+        Cases foncées = (l+c) % 2 == 1.
+        """
+        for l in range(4):
             for c in range(N):
                 if (l + c) % 2 == 1:
                     p = Pion(NOIR, l, c)
                     self.pions[NOIR].append(p)
                     self.grille[l][c] = NOIR
-        for l in range(5, N):
+        for l in range(6, N):
             for c in range(N):
                 if (l + c) % 2 == 1:
                     p = Pion(BLANC, l, c)
@@ -85,98 +99,210 @@ class Plateau:
         return None
 
     def score(self, couleur: int) -> int:
-        """Score = somme des valeurs des pions restants."""
         return sum(p.valeur for p in self.pions[couleur])
 
     # ── Mouvements légaux ───────────────────────────────────────────────────
     def mouvements_legaux(self, couleur: int) -> List[Tuple[Pion, Chemin]]:
         """
-        Retourne tous les mouvements légaux pour une couleur.
-        Les captures sont OBLIGATOIRES (prioritaires sur les déplacements simples).
+        Règle FMJD :
+        1. Si une capture est possible, elle est OBLIGATOIRE.
+        2. Parmi les captures, seules les MAXIMALES sont légales
+           (celles qui prennent le plus grand nombre de pièces).
         """
         captures = self._toutes_captures(couleur)
         if captures:
-            return captures
-        return self._tous_deplacement_simples(couleur)
+            # Prise maximale : ne garder que les rafles les plus longues
+            max_prises = max(self._nb_prises(ch) for _, ch in captures)
+            return [(p, ch) for p, ch in captures
+                    if self._nb_prises(ch) == max_prises]
+        return self._tous_deplacements_simples(couleur)
 
-    def _tous_deplacement_simples(self, couleur: int) -> List[Tuple[Pion, Chemin]]:
+    @staticmethod
+    def _nb_prises(chemin: Chemin) -> int:
+        """Nombre de pions capturés dans un chemin (nb de sauts)."""
+        return len(chemin) - 1
+
+    # ── Déplacements simples (aucune capture disponible) ────────────────────
+    def _tous_deplacements_simples(self, couleur: int) -> List[Tuple[Pion, Chemin]]:
         res = []
-        fwd = -1 if couleur == BLANC else 1
         for p in self.pions[couleur]:
-            dirs = [(-1,-1),(-1,1),(1,-1),(1,1)] if p.est_dame else [(fwd,-1),(fwd,1)]
-            for dl, dc in dirs:
-                nl, nc = p.ligne + dl, p.col + dc
-                if 0 <= nl < N and 0 <= nc < N and self.grille[nl][nc] == VIDE:
-                    res.append((p, [(p.ligne, p.col), (nl, nc)]))
+            if p.est_dame:
+                res.extend(self._deplacements_dame(p))
+            else:
+                res.extend(self._deplacements_pion(p))
         return res
 
+    def _deplacements_pion(self, p: Pion) -> List[Tuple[Pion, Chemin]]:
+        """Pion simple : avance uniquement dans sa direction."""
+        fwd = -1 if p.couleur == BLANC else 1
+        res = []
+        for dc in (-1, 1):
+            nl, nc = p.ligne + fwd, p.col + dc
+            if 0 <= nl < N and 0 <= nc < N and self.grille[nl][nc] == VIDE:
+                res.append((p, [(p.ligne, p.col), (nl, nc)]))
+        return res
+
+    def _deplacements_dame(self, p: Pion) -> List[Tuple[Pion, Chemin]]:
+        """
+        Dame à vol libre : se déplace sur toute une diagonale,
+        case par case, jusqu'à rencontrer un obstacle ou le bord.
+        """
+        res = []
+        for dl, dc in ((-1,-1),(-1,1),(1,-1),(1,1)):
+            nl, nc = p.ligne + dl, p.col + dc
+            while 0 <= nl < N and 0 <= nc < N:
+                if self.grille[nl][nc] != VIDE:
+                    break
+                res.append((p, [(p.ligne, p.col), (nl, nc)]))
+                nl += dl
+                nc += dc
+        return res
+
+    # ── Captures ────────────────────────────────────────────────────────────
     def _toutes_captures(self, couleur: int) -> List[Tuple[Pion, Chemin]]:
         res = []
         for p in self.pions[couleur]:
-            seqs = self._captures_rec(p, p.ligne, p.col, set(),
-                                       deepcopy(self.grille))
+            seqs = self._captures_rec(p, p.ligne, p.col,
+                                      frozenset(), deepcopy(self.grille),
+                                      p.est_dame)
             for s in seqs:
                 res.append((p, s))
         return res
 
     def _captures_rec(self, pion: Pion, l: int, c: int,
-                       deja_cap: set, g) -> List[Chemin]:
+                       deja_cap: frozenset, g: List[List[int]],
+                       est_dame: bool) -> List[Chemin]:
+        """
+        Génère toutes les séquences de capture possibles depuis (l, c).
+
+        Règles FMJD appliquées :
+        - Pions ET dames peuvent capturer dans les 4 directions
+        - Dames : vol libre avant ET après la pièce sautée
+        - Pion promu EN COURS de rafle : continue comme pion jusqu'à la fin
+          (la promotion n'est effective qu'après la rafle complète)
+        - Un pion capturé est retiré de la grille, mais ne peut être
+          re-capturé dans la même rafle
+        """
         adverse = NOIR if pion.couleur == BLANC else BLANC
-        fwd = -1 if pion.couleur == BLANC else 1
-        dirs = [(-1,-1),(-1,1),(1,-1),(1,1)] if pion.est_dame else \
-               [(fwd,-1),(fwd,1),(-fwd,-1),(-fwd,1)]
         res = []
-        for dl, dc in dirs:
-            ml, mc = l+dl, c+dc        # case à sauter
-            al, ac = l+2*dl, c+2*dc    # case d'arrivée
-            if not (0<=ml<N and 0<=mc<N and 0<=al<N and 0<=ac<N):
-                continue
-            case_m = g[ml][mc]
-            est_adv = (case_m == adverse
-                       or (adverse == NOIR  and case_m == DAME_N)
-                       or (adverse == BLANC and case_m == DAME_B))
-            if est_adv and g[al][ac] == VIDE and (ml,mc) not in deja_cap:
-                g2 = deepcopy(g)
-                g2[ml][mc] = VIDE
-                g2[l][c]   = VIDE
-                g2[al][ac] = pion.code_grille()
-                suite = self._captures_rec(pion, al, ac, deja_cap|{(ml,mc)}, g2)
-                if suite:
-                    for s in suite:
-                        res.append([(l,c)] + s)
-                else:
-                    res.append([(l,c), (al,ac)])
+
+        if est_dame:
+            # ── Capture à vol libre (dame) ──────────────────────────────
+            for dl, dc in ((-1,-1),(-1,1),(1,-1),(1,1)):
+                # Chercher une pièce adverse sur cette diagonale
+                nl, nc = l + dl, c + dc
+                while 0 <= nl < N and 0 <= nc < N:
+                    case = g[nl][nc]
+                    est_adv = (case == adverse
+                               or (adverse == NOIR  and case == DAME_N)
+                               or (adverse == BLANC and case == DAME_B))
+                    if est_adv and (nl, nc) not in deja_cap:
+                        # Chercher toutes les cases d'atterrissage
+                        al, ac = nl + dl, nc + dc
+                        while 0 <= al < N and 0 <= ac < N and g[al][ac] == VIDE:
+                            g2 = deepcopy(g)
+                            g2[nl][nc] = VIDE
+                            g2[l][c]   = VIDE
+                            g2[al][ac] = pion.code_grille()
+                            suite = self._captures_rec(
+                                pion, al, ac, deja_cap | {(nl, nc)}, g2, True)
+                            if suite:
+                                for s in suite:
+                                    res.append([(l, c)] + s)
+                            else:
+                                res.append([(l, c), (al, ac)])
+                            al += dl
+                            ac += dc
+                        break  # La pièce adverse bloque la diagonale
+                    elif case != VIDE:
+                        break  # Case occupée par une pièce alliée
+                    nl += dl
+                    nc += dc
+        else:
+            # ── Capture pion simple (4 directions, saut de 1) ──────────
+            for dl, dc in ((-1,-1),(-1,1),(1,-1),(1,1)):
+                ml, mc = l + dl, c + dc      # case à sauter
+                al, ac = l + 2*dl, c + 2*dc  # case d'arrivée
+                if not (0 <= ml < N and 0 <= mc < N
+                        and 0 <= al < N and 0 <= ac < N):
+                    continue
+                case_m = g[ml][mc]
+                est_adv = (case_m == adverse
+                           or (adverse == NOIR  and case_m == DAME_N)
+                           or (adverse == BLANC and case_m == DAME_B))
+                if est_adv and g[al][ac] == VIDE and (ml, mc) not in deja_cap:
+                    g2 = deepcopy(g)
+                    g2[ml][mc] = VIDE
+                    g2[l][c]   = VIDE
+                    g2[al][ac] = pion.code_grille()
+
+                    # Règle FMJD : la promotion en cours de rafle n'active
+                    # PAS le vol libre — le pion reste "pion" pour la suite.
+                    # (Il sera promu après la rafle complète dans appliquer().)
+                    suite = self._captures_rec(
+                        pion, al, ac, deja_cap | {(ml, mc)}, g2, False)
+                    if suite:
+                        for s in suite:
+                            res.append([(l, c)] + s)
+                    else:
+                        res.append([(l, c), (al, ac)])
         return res
 
     # ── Application d'un mouvement ──────────────────────────────────────────
     def appliquer(self, pion: Pion, chemin: Chemin) -> List[Pion]:
         """
-        Joue le mouvement. Retourne la liste des pions capturés.
-        Met à jour la grille et les listes de pions.
+        Joue le mouvement. Retourne les pions capturés.
+        La promotion est appliquée APRÈS la rafle complète.
         """
         captures: List[Pion] = []
-        for i in range(len(chemin) - 1):
-            l1, c1 = chemin[i]
-            l2, c2 = chemin[i+1]
-            # Si saut : capturer le pion intermédiaire
-            if abs(l2-l1) == 2:
-                ml, mc = (l1+l2)//2, (c1+c2)//2
-                cap = self.pion_en(ml, mc)
-                if cap:
-                    captures.append(cap)
-                    self.pions[cap.couleur].remove(cap)
-                    self.grille[ml][mc] = VIDE
 
-        self.grille[pion.ligne][pion.col] = VIDE
-        pion.ligne, pion.col = chemin[-1]
+        if pion.est_dame:
+            # ── Déplacement / capture dame (vol libre) ──────────────────
+            for i in range(len(chemin) - 1):
+                l1, c1 = chemin[i]
+                l2, c2 = chemin[i + 1]
+                dl = (1 if l2 > l1 else -1)
+                dc = (1 if c2 > c1 else -1)
+                # Effacer le chemin intermédiaire + capturer éventuellement
+                nl, nc = l1 + dl, c1 + dc
+                while (nl, nc) != (l2, c2):
+                    v = self.grille[nl][nc]
+                    if v != VIDE:
+                        cap = self.pion_en(nl, nc)
+                        if cap and cap not in captures:
+                            captures.append(cap)
+                            self.pions[cap.couleur].remove(cap)
+                            self.grille[nl][nc] = VIDE
+                    nl += dl
+                    nc += dc
+            self.grille[pion.ligne][pion.col] = VIDE
+            pion.ligne, pion.col = chemin[-1]
+            self.grille[pion.ligne][pion.col] = pion.code_grille()
 
-        # Promotion
-        if pion.couleur == BLANC and pion.ligne == 0 and not pion.est_dame:
-            pion.est_dame = True
-        elif pion.couleur == NOIR and pion.ligne == N-1 and not pion.est_dame:
-            pion.est_dame = True
+        else:
+            # ── Déplacement / capture pion simple ───────────────────────
+            for i in range(len(chemin) - 1):
+                l1, c1 = chemin[i]
+                l2, c2 = chemin[i + 1]
+                if abs(l2 - l1) == 2:
+                    ml, mc = (l1 + l2) // 2, (c1 + c2) // 2
+                    cap = self.pion_en(ml, mc)
+                    if cap:
+                        captures.append(cap)
+                        self.pions[cap.couleur].remove(cap)
+                        self.grille[ml][mc] = VIDE
 
-        self.grille[pion.ligne][pion.col] = pion.code_grille()
+            self.grille[pion.ligne][pion.col] = VIDE
+            pion.ligne, pion.col = chemin[-1]
+
+            # Promotion APRÈS la rafle complète (règle FMJD)
+            if pion.couleur == BLANC and pion.ligne == 0:
+                pion.est_dame = True
+            elif pion.couleur == NOIR and pion.ligne == N - 1:
+                pion.est_dame = True
+
+            self.grille[pion.ligne][pion.col] = pion.code_grille()
+
         return captures
 
     # ── Fin de partie ───────────────────────────────────────────────────────
@@ -188,18 +314,18 @@ class Plateau:
             return BLANC
         return 0
 
-    # ── Copie profonde ──────────────────────────────────────────────────────
+    # ── Copie ───────────────────────────────────────────────────────────────
     def copie(self) -> "Plateau":
         p = Plateau.__new__(Plateau)
         p.grille = deepcopy(self.grille)
-        p.pions  = {
+        p.pions = {
             BLANC: [deepcopy(x) for x in self.pions[BLANC]],
             NOIR:  [deepcopy(x) for x in self.pions[NOIR]],
         }
         return p
 
     def cle(self) -> str:
-        """Représentation compacte du plateau (clé pour la table Q)."""
+        """Clé compacte pour la table Q."""
         parts = []
         for l in range(N):
             for c in range(N):

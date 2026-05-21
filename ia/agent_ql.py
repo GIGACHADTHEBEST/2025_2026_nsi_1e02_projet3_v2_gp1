@@ -92,10 +92,11 @@ class AgentQL:
         """
         sc = plateau.score(self.couleur) - plateau.score(self.adverse)
         # Bonus de position : pions plus avancés vers la promotion
+        # Adapté au plateau 10×10 (N=10, rangs 0..9)
         bonus = 0.0
         for p in plateau.pions[self.couleur]:
             rang = (N - 1 - p.ligne) if self.couleur == BLANC else p.ligne
-            bonus += rang * 0.02
+            bonus += rang * 0.015   # coefficient légèrement réduit (10 rangées)
         return sc + bonus
 
     # ── Choisir une action ──────────────────────────────────────────────────
@@ -144,12 +145,9 @@ class AgentQL:
         r = 0.0
         for cap in captures:
             r += R_DAME if cap.est_dame else R_PION
-        if pion_joue.est_dame and not any(
-                True for _ in captures):  # vient juste d'être promu
-            # on détecte la promotion via la ligne d'arrivée
-            pass
         if pion_joue.est_dame:
-            l_promo = 0 if self.couleur == BLANC else N-1
+            # Promotion si le pion vient d'atteindre la dernière rangée
+            l_promo = 0 if self.couleur == BLANC else N - 1
             if pion_joue.ligne == l_promo:
                 r += R_PROMO
 
