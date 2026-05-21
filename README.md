@@ -1,134 +1,119 @@
 # ♟ Jeu de Dames — Projet NSI
-## Intelligence Artificielle par Q-Learning (Apprentissage par Renforcement)
+### Architecture MVC · IA Q-Learning à convergence rapide
 
 ---
 
-## 🏗️ Architecture MVC
+## Structure du projet (MVC strict)
 
 ```
-jeu_dames/
+dames/
 │
-├── main.py                        ← Point d'entrée
+├── main.py                          ← Point d'entrée : assemble MVC
 │
 ├── model/
-│   └── plateau.py                 ← MODÈLE : état du plateau, règles du jeu
+│   └── plateau.py                   ← MODÈLE : état pur, règles, aucune dépendance
 │
 ├── view/
-│   └── vue_principale.py          ← VUE : interface graphique Tkinter
+│   └── vue_principale.py            ← VUE : Tkinter, interface publique seulement
 │
 ├── controller/
-│   └── jeu_controller.py          ← CONTRÔLEUR : logique applicative
+│   └── jeu_controller.py            ← CONTRÔLEUR : orchestre modèle ↔ vue
 │
 └── ia/
-    ├── agent_ql.py                 ← Agent Q-Learning
-    └── entraineur.py              ← Entraînement par auto-jeu (self-play)
+    ├── agent_ql.py                  ← Agent Q-Learning (apprentissage rapide)
+    └── entraineur.py               ← Auto-entraînement (self-play)
 ```
-
-### Rôle de chaque composant (MVC)
-
-| Composant | Fichier | Responsabilité |
-|-----------|---------|---------------|
-| **Modèle** | `model/plateau.py` | Représente l'état du jeu. Contient `Pion`, `Plateau`. Ne connaît ni la vue ni le contrôleur. |
-| **Vue** | `view/vue_principale.py` | Affiche l'interface graphique. Reçoit des commandes du contrôleur. Notifie les clics. |
-| **Contrôleur** | `controller/jeu_controller.py` | Fait le lien entre modèle et vue. Gère les tours, les modes de jeu, les sauvegardes. |
-| **IA** | `ia/agent_ql.py` | Agent Q-Learning. Apprend à maximiser son score. |
-| **Entraîneur** | `ia/entraineur.py` | Fait jouer deux IA l'une contre l'autre pour qu'elles apprennent. |
 
 ---
 
-## 🤖 Comment fonctionne l'IA ?
+## Séparation MVC
 
-### Q-Learning (Apprentissage par Renforcement)
+| Couche | Fichier | Ce qu'elle FAIT | Ce qu'elle NE FAIT PAS |
+|--------|---------|-----------------|------------------------|
+| **Modèle** | `model/plateau.py` | État du plateau, règles, captures, promotion, score | Aucun affichage, ne connaît pas la vue |
+| **Vue** | `view/vue_principale.py` | Dessine le plateau, les boutons, les stats | Aucune règle de jeu, ne touche pas au Plateau |
+| **Contrôleur** | `controller/jeu_controller.py` | Gère les tours, appelle le modèle, met à jour la vue | Aucun widget Tkinter, aucune formule Q |
 
-L'IA utilise l'algorithme **Q-Learning**, une méthode d'apprentissage par renforcement sans modèle.
-
-#### Principe fondamental
-> L'IA apprend en jouant de nombreuses parties. Elle reçoit des **récompenses** selon ses actions et met à jour sa **table Q** pour prendre de meilleures décisions au fil du temps.
-
-#### La Table Q
-```
-Table Q : Q[état][action] → valeur estimée
-```
-- **État** : représentation compacte du plateau (positions de tous les pions)
-- **Action** : mouvement à jouer (chemin d'un pion)
-- **Valeur** : estimation de la "récompense totale future" si on fait cette action
-
-#### Formule de Bellman (mise à jour Q)
-```
-Q(s, a) ← Q(s, a) + α × [r + γ × max Q(s', a') − Q(s, a)]
-```
-- `α = 0.1` : taux d'apprentissage (importance des nouvelles infos)
-- `γ = 0.9` : facteur de discount (importance des récompenses futures)
-- `r` : récompense immédiate obtenue
-- `max Q(s', a')` : meilleure valeur Q dans l'état suivant
-
-#### Système de récompenses (objectif : maximiser les points)
-| Événement | Récompense |
-|-----------|-----------|
-| Capturer un pion ennemi | **+1 point** |
-| Capturer une dame ennemie | **+3 points** |
-| Promouvoir un pion en dame | **+2 points** |
-| Gagner la partie | **+10 points** |
-| Perdre la partie | **−10 points** |
-
-> ⚠️ L'IA est explicitement entraînée avec **1 pion = 1 point** comme objectif, conformément au sujet.
-
-#### Stratégie epsilon-greedy (exploration vs exploitation)
-```
-ε initial = 1.0  →  100% exploration au début (coups aléatoires)
-ε décroit × 0.995 par partie
-ε minimum = 0.05 →  5% exploration à maturité (surtout exploitation)
-```
-- **Exploration** (ε élevé) : coups aléatoires → découverte de nouvelles stratégies
-- **Exploitation** (ε faible) : meilleur coup connu → utilisation de l'expérience accumulée
+La vue et le modèle **ne se connaissent pas**. Seul le contrôleur fait le lien.
 
 ---
 
-## 🎮 Modes de jeu
+## L'IA Q-Learning — Pourquoi elle progresse vite
 
-### 1. Joueur vs IA
-- Vous jouez les **Blancs**, l'IA joue les **Noirs**
-- Cliquez sur un pion pour le sélectionner (surlignage jaune)
-- Les cases vertes indiquent les destinations possibles
-- Cliquez sur une destination pour jouer
+### Technique 1 : Hyperparamètres agressifs
+```python
+ALPHA      = 0.30   # taux d'apprentissage élevé
+EPS_DECAY  = 0.98   # epsilon décroît rapidement (-2% par partie)
+```
 
-### 2. IA vs IA (visible)
-- Regardez deux IA jouer l'une contre l'autre
-- Idéal pour observer la progression de l'apprentissage
+### Technique 2 : Reward shaping (récompenses denses)
+L'IA ne reçoit pas seulement +10 à la victoire (signal trop rare).
+Elle reçoit un signal à chaque coup :
+```
++1.0  capturer un pion ennemi     (objectif : 1 pion = 1 point)
++3.0  capturer une dame ennemie
++2.5  promouvoir un pion en dame
++0.05 avancer vers la promotion (par rangée gagnée)
++10   gagner la partie
+-10   perdre
+```
 
-### 3. Entraînement rapide
-- Lance N parties en arrière-plan (sans affichage case par case)
-- Permet d'entraîner l'IA sur des milliers de parties rapidement
-- Les données sont sauvegardées automatiquement
+### Technique 3 : Experience Replay
+Les dernières 2000 transitions sont stockées.
+Après chaque coup, 32 transitions aléatoires sont rejouées.
+→ Les rares événements importants (captures) sont réappris plusieurs fois.
+
+### Technique 4 : Heuristique d'initialisation
+Si un état est inconnu de la table Q, sa valeur est estimée par :
+```
+heuristique = (mes_pions - pions_adverses) + bonus_position
+```
+au lieu de 0.0. Cela guide les premiers coups intelligemment.
+
+### Formule de mise à jour (Bellman)
+```
+Q(s, a) ← Q(s, a) + α × [ r + γ × max Q(s', a') − Q(s, a) ]
+           ─────────────────────────────────────────────────
+           correction (erreur TD)
+```
+- `α = 0.30` : poids accordé à la nouvelle information
+- `γ = 0.92` : importance des récompenses futures
 
 ---
 
-## ▶️ Lancement
+## Lancement
 
 ```bash
+cd dames
 python main.py
 ```
 
-**Prérequis** : Python 3.8+ avec Tkinter (inclus par défaut)
+**Requis** : Python 3.8+ avec Tkinter (inclus par défaut).
 
 ---
 
-## 📊 Progression de l'IA
+## Guide d'utilisation
 
-Après entraînement, l'IA améliore :
-- Son **taux de victoire** (visible dans les stats)
-- Son **score moyen** par partie (pions capturés)
-- Le nombre d'**états connus** dans sa table Q
-
-Les sauvegardes `save_blanc.json` et `save_noir.json` persistent entre les sessions.
+| Action | Résultat |
+|--------|---------|
+| Cliquer sur un pion blanc | Sélection + affichage des coups légaux (vert) |
+| Cliquer sur une case verte | Jouer le coup |
+| Mode "IA vs IA" + Nouvelle partie | Regarder deux IA apprendre en direct |
+| Entraînement rapide (500 parties) | Les IA jouent sans affichage, ~5 secondes |
+| Actualiser stats | Voir taux de victoire, score moyen, états Q connus |
 
 ---
 
-## 📐 Règles du jeu implémentées
+## Règles implémentées
 
-- Déplacements diagonaux des pions
-- **Captures obligatoires** (si une capture est possible, elle doit être jouée)
-- **Captures multiples** en chaîne
-- Promotion en **dame** (pion atteignant le bord adverse)
-- Dames : déplacement dans les 4 directions diagonales
-- Victoire : adversaire sans pions ou sans mouvement possible
+- Déplacements diagonaux uniquement sur cases foncées
+- **Captures obligatoires** (règle française)
+- **Rafles** (captures multiples enchaînées)
+- **Promotion** : pion atteignant le bord adverse → dame
+- Dames : déplacement dans les 4 diagonales
+- Victoire : adversaire sans pion OU sans mouvement légal
+- **Système de points** : 1 pion = 1 pt · 1 dame = 3 pts
+
+---
+
+*Projet NSI — Architecture MVC · Python 3 · Tkinter · Q-Learning*

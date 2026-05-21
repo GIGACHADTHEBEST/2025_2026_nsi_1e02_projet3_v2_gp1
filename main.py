@@ -1,51 +1,52 @@
 """
-main.py — Point d'entrée du jeu de dames
-Instancie les composants MVC et démarre l'application.
+main.py — Point d'entrée
+========================
+Assemble les trois couches MVC et démarre l'application.
 
-Architecture MVC :
-  Model      → model/plateau.py     (état du jeu, règles)
-  View       → view/vue_principale.py (interface Tkinter)
-  Controller → controller/jeu_controller.py (logique applicative)
-  IA         → ia/agent_ql.py        (Q-Learning)
-               ia/entraineur.py      (auto-entraînement)
+     ┌──────────────┐       ┌──────────────────────┐
+     │  VuePrincipale│◄─────│  JeuController        │
+     │  (Tkinter)    │      │  (logique applicative)│
+     └──────────────┘       └──────────┬───────────┘
+                                        │ interroge/modifie
+                                        ▼
+                               ┌─────────────────┐
+                               │  Plateau (Model)│
+                               │  AgentQL  (IA)  │
+                               └─────────────────┘
 """
 
-import tkinter as tk
 import sys
 import os
-
-# Ajouter le répertoire courant au chemin Python
 sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
 
-from view.vue_principale import VuePrincipale
+import tkinter as tk
+from view.vue_principale   import VuePrincipale
 from controller.jeu_controller import JeuController
+from model.plateau         import Plateau
 
 
 def main():
-    """Lance l'application."""
-    # Créer la fenêtre Tkinter
     root = tk.Tk()
 
-    # Créer la vue
+    # 1. Créer la vue
     vue = VuePrincipale(root)
 
-    # Créer le contrôleur et l'injecter dans la vue
-    controller = JeuController(vue)
-    vue.set_controller(controller)
+    # 2. Créer le contrôleur (injecte la vue)
+    ctrl = JeuController(vue)
 
-    # Afficher les stats initiales
-    vue._btn_actualiser_stats()
+    # 3. Injecter le contrôleur dans la vue
+    vue.set_controller(ctrl)
 
-    # Dessiner le plateau vide initial
-    from model.plateau import Plateau
-    vue.mettre_a_jour_plateau(Plateau())
+    # 4. Affichage initial
+    p0 = Plateau()
+    vue.rafraichir_plateau(p0, sel=None, destinations=[])
+    vue.maj_scores(p0.score(1), p0.score(2))
+    vue._on_stats()
 
-    # Centrer la fenêtre
+    # 5. Centrer la fenêtre
     root.update_idletasks()
-    w = root.winfo_width()
-    h = root.winfo_height()
-    sw = root.winfo_screenwidth()
-    sh = root.winfo_screenheight()
+    sw, sh = root.winfo_screenwidth(), root.winfo_screenheight()
+    w,  h  = root.winfo_width(),       root.winfo_height()
     root.geometry(f"+{(sw-w)//2}+{(sh-h)//2}")
 
     root.mainloop()
