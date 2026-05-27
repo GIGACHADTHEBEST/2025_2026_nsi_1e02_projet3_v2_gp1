@@ -1,7 +1,9 @@
+<<<<<<< HEAD
 Projet 3
 Gwenolé Beillevaire
 Jermolaj Adarcenko
 Raphaël Botalla
+
 
 Jeu de dames ou jeu d’échec
 (longue réflexion)

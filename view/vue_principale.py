@@ -3,8 +3,6 @@ VIEW : vue_principale.py
 ========================
 Interface graphique Tkinter — Dames internationales 10×10.
 Règles MVC strictes : la vue ne connaît pas le modèle Plateau.
-
-Esthétique : bois sombre et or — élégant, intemporel.
 """
 
 from __future__ import annotations
@@ -66,10 +64,10 @@ class VuePrincipale:
     def _build_header(self):
         f = tk.Frame(self.root, bg=C["bg"])
         f.pack(pady=(14, 4))
-        tk.Label(f, text="DAMES INTERNATIONALES",
+        tk.Label(f, text="JEU DE DAMES",
                  font=("Palatino Linotype", 22, "bold"),
                  fg=C["or_clair"], bg=C["bg"]).pack()
-        tk.Label(f, text="Plateau 10×10 · Règles FMJD · IA Q-Learning",
+        tk.Label(f, text="Plateau 10×10 (QUE LE PLUS FORT GAGNE)",
                  font=("Courier New", 10), fg=C["texte_dim"], bg=C["bg"]).pack()
 
     def _build_board(self, parent):
@@ -141,9 +139,9 @@ class VuePrincipale:
         self._section("SCORES", self.sidebar)
         sf = tk.Frame(self.sidebar, bg=C["panel"])
         sf.pack(**sp)
-        self.lbl_sc_b = self._score_badge(sf, "⬜ Blancs", "20")
+        self.lbl_sc_b = self._score_badge(sf, " Blancs", "20")
         self.lbl_sc_b.grid(row=0, column=0, padx=6)
-        self.lbl_sc_n = self._score_badge(sf, "⬛ Noirs", "20")
+        self.lbl_sc_n = self._score_badge(sf, " Noirs", "20")
         self.lbl_sc_n.grid(row=0, column=1, padx=6)
 
         self.lbl_tour = tk.Label(self.sidebar, text="Tour : —",
@@ -173,13 +171,13 @@ class VuePrincipale:
         # ── Mode ────────────────────────────────────────────────────────
         self._section("MODE DE JEU", self.sidebar)
         self.var_mode = tk.StringVar(value="humain_vs_ia")
-        for txt, val in [("👤  Joueur (Blancs) vs IA", "humain_vs_ia"),
-                         ("🤖  IA vs IA  (visible)", "ia_vs_ia")]:
+        for txt, val in [("  Joueur (Blancs) vs IA", "humain_vs_ia"),
+                         ("  IA vs IA  (visible)", "ia_vs_ia")]:
             tk.Radiobutton(self.sidebar, text=txt, variable=self.var_mode,
                            value=val, bg=C["panel"], fg=C["texte"],
                            selectcolor=C["bg"], activebackground=C["panel"],
                            font=("Courier New", 10)).pack(anchor="w", padx=16)
-        self._bouton("▶  Nouvelle partie", self._on_nouvelle_partie,
+        self._bouton("  Nouvelle partie", self._on_nouvelle_partie,
                      self.sidebar, C["or"]).pack(padx=16, fill="x",
                                                   pady=(8, 4))
 
@@ -296,18 +294,18 @@ class VuePrincipale:
                                     fill=C["or"])
 
     def maj_scores(self, score_blanc: int, score_noir: int):
-        self.lbl_sc_b.config(text=f"⬜ Blancs\n{score_blanc} pts")
-        self.lbl_sc_n.config(text=f"⬛ Noirs\n{score_noir} pts")
+        self.lbl_sc_b.config(text=f" Blancs\n{score_blanc} pts")
+        self.lbl_sc_n.config(text=f" Noirs\n{score_noir} pts")
 
     def set_message(self, msg: str):
         self.lbl_msg.config(text=msg)
 
     def set_tour(self, couleur: int):
-        nom = "Blancs ⬜" if couleur == BLANC else "Noirs ⬛"
+        nom = "Blancs " if couleur == BLANC else "Noirs "
         self.lbl_tour.config(text=f"Tour : {nom}")
 
     def afficher_fin(self, gagnant: int, score_blanc: int, score_noir: int):
-        nom = "Blancs ⬜" if gagnant == BLANC else "Noirs ⬛"
+        nom = "Blancs " if gagnant == BLANC else "Noirs "
         self.set_message(f"Partie terminée — Gagnant : {nom} !")
         messagebox.showinfo("Fin de partie",
             f"Gagnant : {nom}\n\n"
@@ -323,7 +321,7 @@ class VuePrincipale:
         self.pb["value"]   = i
         if termine:
             self.set_message(
-                f"✅ Entraînement terminé ({total} parties) — "
+                f" Entraînement terminé ({total} parties) — "
                 f"Blancs {stats_b['taux_victoire']}% / "
                 f"Noirs {stats_n['taux_victoire']}% victoires")
             self._afficher_stats(stats_b, stats_n)
