@@ -41,7 +41,7 @@ class VuePrincipale:
 
     def __init__(self, root: tk.Tk):
         self.root = root
-        self.root.title("Jeu de Dames Internationales · 10×10 · IA Q-Learning")
+        self.root.title("JE DAMES MASTER")
         self.root.configure(bg=C["bg"])
         self.root.resizable(False, False)
         self.controller = None
@@ -65,10 +65,10 @@ class VuePrincipale:
         f = tk.Frame(self.root, bg=C["bg"])
         f.pack(pady=(14, 4))
         tk.Label(f, text="JEU DE DAMES",
-                 font=("Palatino Linotype", 22, "bold"),
+                 font=("Verdana", 22, "bold"),
                  fg=C["or_clair"], bg=C["bg"]).pack()
         tk.Label(f, text="Plateau 10×10 (QUE LE PLUS FORT GAGNE)",
-                 font=("Courier New", 10), fg=C["texte_dim"], bg=C["bg"]).pack()
+                 font=("Plantin Pro Roman", 10), fg=C["texte_dim"], bg=C["bg"]).pack()
 
     def _build_board(self, parent):
         wrap = tk.Frame(parent, bg=C["bg"])
@@ -81,7 +81,7 @@ class VuePrincipale:
         for c in range(N):
             tk.Label(top_coords, text=chr(ord('a') + c),
                      width=int(SZ / 9) + 1,
-                     font=("Courier New", 9), fg=C["texte_dim"],
+                     font=("Plantin Pro Roman", 9), fg=C["texte_dim"],
                      bg=C["bg"]).pack(side="left")
 
         row_wrap = tk.Frame(wrap, bg=C["bg"])
@@ -92,7 +92,7 @@ class VuePrincipale:
         self._row_labels.pack(side="left")
         for i in range(N):
             tk.Label(self._row_labels, text=str(N - i), width=2,
-                     font=("Courier New", 9), fg=C["texte_dim"],
+                     font=("Plantin Pro Roman", 9), fg=C["texte_dim"],
                      bg=C["bg"]).pack(expand=True, fill="y")
 
         # Canvas principal
@@ -145,7 +145,7 @@ class VuePrincipale:
         self.lbl_sc_n.grid(row=0, column=1, padx=6)
 
         self.lbl_tour = tk.Label(self.sidebar, text="Tour : —",
-                                 font=("Courier New", 10, "bold"),
+                                 font=("Plantin Pro Roman", 10, "bold"),
                                  fg=C["or"], bg=C["panel"])
         self.lbl_tour.pack(**sp)
 
@@ -159,10 +159,9 @@ class VuePrincipale:
             "• Prise maximale obligatoire\n"
             "• Prise arrière (pions)\n"
             "• Dame : vol libre\n"
-            "• Promotion après la rafle"
         )
         tk.Label(self.sidebar, text=regles,
-                 font=("Courier New", 8), fg=C["texte_dim"],
+                 font=("Plantin Pro Roman", 8), fg=C["texte_dim"],
                  bg=C["panel"], justify="left").pack(padx=16, pady=(0, 4),
                                                      anchor="w")
 
@@ -176,7 +175,7 @@ class VuePrincipale:
             tk.Radiobutton(self.sidebar, text=txt, variable=self.var_mode,
                            value=val, bg=C["panel"], fg=C["texte"],
                            selectcolor=C["bg"], activebackground=C["panel"],
-                           font=("Courier New", 10)).pack(anchor="w", padx=16)
+                           font=("Plantin Pro Roman", 10)).pack(anchor="w", padx=16)
         self._bouton("  Nouvelle partie", self._on_nouvelle_partie,
                      self.sidebar, C["or"]).pack(padx=16, fill="x",
                                                   pady=(8, 4))
@@ -188,15 +187,15 @@ class VuePrincipale:
         ef = tk.Frame(self.sidebar, bg=C["panel"])
         ef.pack(**sp, fill="x")
         tk.Label(ef, text="Parties :", fg=C["texte"], bg=C["panel"],
-                 font=("Courier New", 10)).pack(side="left")
+                 font=("Plantin Pro Roman", 10)).pack(side="left")
         self.var_n = tk.IntVar(value=500)
         tk.Spinbox(ef, from_=50, to=10000, increment=50,
                    textvariable=self.var_n, width=7,
                    bg="#2E2A26", fg=C["texte"],
                    insertbackground="white",
-                   font=("Courier New", 10)).pack(side="left", padx=8)
+                   font=("Plantin Pro Roman", 10)).pack(side="left", padx=8)
 
-        self._bouton("⚡  Lancer entraînement", self._on_entrainement,
+        self._bouton("  Lancer entraînement", self._on_entrainement,
                      self.sidebar, "#5A3E10").pack(padx=16, fill="x",
                                                     pady=(0, 6))
         self.pb = ttk.Progressbar(self.sidebar, mode="determinate", length=230)
@@ -208,7 +207,7 @@ class VuePrincipale:
         self._section("STATISTIQUES IA", self.sidebar)
         self.txt_stats = tk.Text(self.sidebar, height=11, width=28,
                                   bg="#111", fg="#8DC88A",
-                                  font=("Courier New", 9),
+                                  font=("Plantin Pro Roman", 9),
                                   state="disabled", relief="flat", bd=0,
                                   insertbackground="white")
         self.txt_stats.pack(**sp)
@@ -387,7 +386,7 @@ class VuePrincipale:
     # ════════════════════════════════════════════════════════════════════════
     def _section(self, titre: str, parent):
         tk.Label(parent, text=titre,
-                 font=("Courier New", 8, "bold"),
+                 font=("Plantin Pro Roman", 8, "bold"),
                  fg=C["or"], bg=C["panel"]).pack(
             padx=16, pady=(10, 2), anchor="w")
 
@@ -398,7 +397,7 @@ class VuePrincipale:
     def _bouton(self, texte: str, cmd, parent, couleur: str) -> tk.Button:
         return tk.Button(parent, text=texte, command=cmd,
                          bg=couleur, fg=C["texte"],
-                         font=("Courier New", 10, "bold"),
+                         font=("Plantin Pro Roman", 10, "bold"),
                          relief="flat", bd=0, pady=7, cursor="hand2",
                          activebackground="#8A6A30",
                          activeforeground="#FFFFFF")
@@ -406,6 +405,6 @@ class VuePrincipale:
     def _score_badge(self, parent, label: str, val: str) -> tk.Label:
         return tk.Label(parent,
                         text=f"{label}\n{val} pts",
-                        font=("Courier New", 11, "bold"),
+                        font=("Plantin Pro Roman", 11, "bold"),
                         fg=C["texte"], bg="#2E2A26",
                         width=12, relief="groove", bd=2, pady=6)
