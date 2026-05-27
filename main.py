@@ -1,20 +1,3 @@
-"""
-main.py — Point d'entrée
-========================
-Assemble les trois couches MVC et démarre l'application.
-
-     ┌──────────────┐       ┌──────────────────────┐
-     │  VuePrincipale│◄─────│  JeuController        │
-     │  (Tkinter)    │      │  (logique applicative)│
-     └──────────────┘       └──────────┬───────────┘
-                                        │ interroge/modifie
-                                        ▼
-                               ┌─────────────────┐
-                               │  Plateau (Model)│
-                               │  AgentQL  (IA)  │
-                               └─────────────────┘
-"""
-
 import sys
 import os
 sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
