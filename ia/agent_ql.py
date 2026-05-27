@@ -1,17 +1,22 @@
 """
-IA : agent_ql.py
-================
-Agent Q-Learning optimisé pour une progression RAPIDE.
+ia/agent_ql.py
+--------------
+Agent Q-Learning pour le jeu de dames.
 
-Techniques pour accélérer l'apprentissage :
-  1. Alpha élevé (0.3) → apprend vite des nouvelles expériences
-  2. Epsilon decay rapide (0.98/partie) → exploite tôt ce qu'il sait
-  3. Récompenses denses : chaque capture, chaque promotion récompensée
-  4. Reward shaping : bonus de position (avancer = +0.05, dame = +0.3)
-  5. Expérience replay léger (mémorise les N dernières transitions)
-  6. Heuristique initiale : valeur Q = heuristique(état) si état inconnu
+On a essaye plusieurs configurations avant de fixer ces hyperparametres :
+un alpha trop faible (genre 0.05) donnait une convergence tres lente,
+et un epsilon_decay trop agressif faisait que l'agent arretait
+d'explorer beaucoup trop tot.
 
-Objectif : 1 pion = 1 point, maximiser les points capturés.
+Techniques utilisees :
+  - alpha eleve (0.3) : apprend vite des nouvelles experiences
+  - epsilon decay rapide (0.98/partie) : exploite rapidement ce qu'il sait
+  - recompenses a chaque coup (pas seulement en fin de partie)
+  - reward shaping : petit bonus quand un pion avance vers la promotion
+  - experience replay leger : les N dernieres transitions sont rejouees
+  - heuristique d'init : si un etat est inconnu, on estime Q au lieu de 0
+
+Objectif : 1 pion = 1 point, maximiser les points captures.
 """
 
 from __future__ import annotations
@@ -21,90 +26,83 @@ import os
 from collections import deque
 from model.plateau import Plateau, BLANC, NOIR, VALEUR_PION, VALEUR_DAME, N
 
-# ── Hyperparamètres ──────────────────────────────────────────────────────────
-ALPHA        = 0.30    # taux d'apprentissage (élevé = progression rapide)
-GAMMA        = 0.92    # discount futur
-EPS_INIT     = 0.90    # exploration initiale
-EPS_MIN      = 0.05    # exploration minimale
-EPS_DECAY    = 0.980   # décroissance rapide → exploite vite
-REPLAY_SIZE  = 2000    # taille du buffer d'expérience
-REPLAY_BATCH = 32      # taille du mini-batch de replay
+# hyperparametres
+ALPHA        = 0.30
+GAMMA        = 0.92
+EPS_INIT     = 0.90
+EPS_MIN      = 0.05
+EPS_DECAY    = 0.980
+REPLAY_SIZE  = 2000
+REPLAY_BATCH = 32
 
-# ── Récompenses ──────────────────────────────────────────────────────────────
-R_PION      = 1.0    # capturer un pion adverse
-R_DAME      = 3.0    # capturer une dame adverse
-R_PROMO     = 2.5    # devenir dame
-R_WIN       = 10.0   # gagner la partie
-R_LOSE      = -10.0  # perdre
-R_AVANCE    = 0.05   # avancer d'une rangée (reward shaping)
+# valeurs de recompense
+R_PION   = 1.0
+R_DAME   = 3.0
+R_PROMO  = 2.5
+R_WIN    = 10.0
+R_LOSE   = -10.0
+R_AVANCE = 0.05   # petit bonus par rangee gagnee
 
 
 class AgentQL:
     """
-    Agent Q-Learning avec reward shaping et experience replay léger.
-    Converge significativement en ~200-500 parties.
+    Agent Q-Learning avec reward shaping et experience replay.
+    En pratique il commence a jouer decemment autour de 200-500 parties.
     """
 
-    def __init__(self, couleur: int, chemin_save: str | None = None):
-        self.couleur      = couleur
-        self.adverse      = NOIR if couleur == BLANC else BLANC
-        self.chemin_save  = chemin_save
+    def __init__(self, couleur, chemin_save=None):
+        self.couleur     = couleur
+        self.adverse     = NOIR if couleur == BLANC else BLANC
+        self.chemin_save = chemin_save
 
-        # Table Q  {cle_etat: {cle_action: float}}
-        self.Q: dict[str, dict[str, float]] = {}
+        # table Q : {cle_etat: {cle_action: valeur}}
+        self.Q = {}
 
-        self.epsilon       = EPS_INIT
-        self.nb_parties    = 0
-        self.scores        : list[float] = []   # pts capturés par partie
-        self.victoires     : list[int]   = []   # 1/0 par partie
+        self.epsilon          = EPS_INIT
+        self.nb_parties       = 0
+        self.scores           = []   # points captures par partie
+        self.victoires        = []   # 1 si gagne, 0 sinon
         self.pts_cette_partie = 0.0
 
-        # Buffer de replay (s, a, r, s', done)
-        self._replay: deque = deque(maxlen=REPLAY_SIZE)
+        # buffer pour l'experience replay
+        self._replay = deque(maxlen=REPLAY_SIZE)
 
-        # Mémo du dernier pas
-        self._s  : str | None = None
-        self._a  : str | None = None
-        self._l_avant: int = 0   # ligne avant le coup (reward shaping)
+        # memorisation du dernier pas (necessaire pour la mise a jour Q)
+        self._s       = None
+        self._a       = None
+        self._l_avant = 0
 
         if chemin_save and os.path.exists(chemin_save):
             self._charger()
 
-    # ── Table Q ─────────────────────────────────────────────────────────────
-    def _q(self, s: str, a: str) -> float:
+    # table Q : lecture/ecriture
+    def _q(self, s, a):
         return self.Q.get(s, {}).get(a, 0.0)
 
-    def _set_q(self, s: str, a: str, v: float):
+    def _set_q(self, s, a, v):
         if s not in self.Q:
             self.Q[s] = {}
         self.Q[s][a] = v
 
-    # ── Encodage action ─────────────────────────────────────────────────────
+    # encodage d'un chemin en cle lisible
     @staticmethod
-    def _cle_action(chemin: list) -> str:
+    def _cle_action(chemin):
         return "_".join(f"{l}{c}" for l, c in chemin)
 
-    # ── Heuristique initiale ─────────────────────────────────────────────────
-    def _heuristique(self, plateau: Plateau) -> float:
-        """
-        Estimation rapide de la qualité d'une position.
-        Utilisé pour initialiser Q si l'état est inconnu.
-        """
-        sc = plateau.score(self.couleur) - plateau.score(self.adverse)
-        # Bonus de position : pions plus avancés vers la promotion
-        # Adapté au plateau 10×10 (N=10, rangs 0..9)
+    # estimation de la qualite d'un etat quand il est inconnu de la table Q
+    def _heuristique(self, plateau):
+        sc    = plateau.score(self.couleur) - plateau.score(self.adverse)
         bonus = 0.0
         for p in plateau.pions[self.couleur]:
-            rang = (N - 1 - p.ligne) if self.couleur == BLANC else p.ligne
-            bonus += rang * 0.015   # coefficient légèrement réduit (10 rangées)
+            rang   = (N - 1 - p.ligne) if self.couleur == BLANC else p.ligne
+            bonus += rang * 0.015
         return sc + bonus
 
-    # ── Choisir une action ──────────────────────────────────────────────────
-    def choisir(self, plateau: Plateau):
-        """
-        Stratégie epsilon-greedy.
-        Retourne (pion, chemin) ou None.
-        """
+    # -----------------------------------------------------------------------
+    # Choisir une action (epsilon-greedy)
+    # -----------------------------------------------------------------------
+    def choisir(self, plateau):
+        """Retourne (pion, chemin) ou None si aucun mouvement possible."""
         mvs = plateau.mouvements_legaux(self.couleur)
         if not mvs:
             return None
@@ -119,39 +117,42 @@ class AgentQL:
             for pion, chemin in mvs:
                 a = self._cle_action(chemin)
                 v = self._q(s, a)
-                # Si état inconnu, utiliser heuristique simulée
+                # etat inconnu : on estime via heuristique plutot que 0
                 if v == 0.0 and s not in self.Q:
                     sim = plateau.copie()
-                    sim.appliquer(sim.pion_en(pion.ligne, pion.col) or pion,
-                                  chemin)
+                    sim.appliquer(
+                        sim.pion_en(pion.ligne, pion.col) or pion, chemin)
                     v = self._heuristique(sim) * 0.1
                 if v > best_v:
                     best_v = v
                     best   = (pion, chemin)
             choix = best
 
-        self._s = s
-        self._a = self._cle_action(choix[1])
+        self._s       = s
+        self._a       = self._cle_action(choix[1])
         self._l_avant = choix[0].ligne
         return choix
 
-    # ── Apprendre après un coup ─────────────────────────────────────────────
-    def apprendre(self, plateau_apres: Plateau, captures, pion_joue):
-        """Mise à jour Q après un coup. Appelé par le contrôleur."""
+    # -----------------------------------------------------------------------
+    # Mise a jour apres un coup
+    # -----------------------------------------------------------------------
+    def apprendre(self, plateau_apres, captures, pion_joue):
+        """Appelé par le controleur apres chaque coup joue."""
         if self._s is None:
             return
 
-        # ── Récompense immédiate ──
+        # recompense immediate
         r = 0.0
         for cap in captures:
             r += R_DAME if cap.est_dame else R_PION
+
+        # bonus de promotion (seulement si le pion vient d'etre promu)
         if pion_joue.est_dame:
-            # Promotion si le pion vient d'atteindre la dernière rangée
             l_promo = 0 if self.couleur == BLANC else N - 1
             if pion_joue.ligne == l_promo:
                 r += R_PROMO
 
-        # Reward shaping : avancer
+        # reward shaping : avancer vaut un tout petit peu
         l_apres = pion_joue.ligne
         if self.couleur == BLANC:
             r += R_AVANCE * max(0, self._l_avant - l_apres)
@@ -166,15 +167,14 @@ class AgentQL:
         mvs2 = plateau_apres.mouvements_legaux(self.couleur)
         done = len(mvs2) == 0
 
-        # Stocker dans le replay buffer
         self._replay.append((self._s, self._a, r, s2,
                               [self._cle_action(ch) for _, ch in mvs2], done))
 
-        # Mise à jour directe (TD)
+        # mise a jour directe (TD)
         self._td_update(self._s, self._a, r, s2,
                         [self._cle_action(ch) for _, ch in mvs2])
 
-        # Experience replay
+        # experience replay
         if len(self._replay) >= REPLAY_BATCH:
             self._experience_replay()
 
@@ -184,8 +184,7 @@ class AgentQL:
     def _td_update(self, s, a, r, s2, actions2):
         q_now = self._q(s, a)
         q_max = max((self._q(s2, a2) for a2 in actions2), default=0.0)
-        new_q = q_now + ALPHA * (r + GAMMA * q_max - q_now)
-        self._set_q(s, a, new_q)
+        self._set_q(s, a, q_now + ALPHA * (r + GAMMA * q_max - q_now))
 
     def _experience_replay(self):
         batch = random.sample(self._replay, REPLAY_BATCH)
@@ -195,8 +194,10 @@ class AgentQL:
             q_now = self._q(s, a)
             self._set_q(s, a, q_now + ALPHA * (r + GAMMA * q_max - q_now))
 
-    # ── Fin de partie ───────────────────────────────────────────────────────
-    def fin_partie(self, gagnant: int):
+    # -----------------------------------------------------------------------
+    # Fin de partie
+    # -----------------------------------------------------------------------
+    def fin_partie(self, gagnant):
         r_fin = R_WIN if gagnant == self.couleur else (
                 R_LOSE if gagnant == self.adverse else 0.0)
         if self._s and self._a:
@@ -212,20 +213,23 @@ class AgentQL:
         self._s = None
         self._a = None
 
-    # ── Statistiques ───────────────────────────────────────────────────────
-    def stats(self) -> dict:
-        n = self.nb_parties
+    # -----------------------------------------------------------------------
+    # Stats
+    # -----------------------------------------------------------------------
+    def stats(self):
         v50 = self.victoires[-50:]
         s50 = self.scores[-50:]
         return {
-            "parties"       : n,
-            "taux_victoire" : round(sum(v50)/max(1,len(v50))*100, 1),
-            "score_moyen"   : round(sum(s50)/max(1,len(s50)), 2),
+            "parties"       : self.nb_parties,
+            "taux_victoire" : round(sum(v50) / max(1, len(v50)) * 100, 1),
+            "score_moyen"   : round(sum(s50) / max(1, len(s50)), 2),
             "epsilon"       : round(self.epsilon, 3),
             "etats_connus"  : len(self.Q),
         }
 
-    # ── Sauvegarde / chargement ─────────────────────────────────────────────
+    # -----------------------------------------------------------------------
+    # Sauvegarde / chargement
+    # -----------------------------------------------------------------------
     def sauvegarder(self):
         if not self.chemin_save:
             return
@@ -249,4 +253,4 @@ class AgentQL:
             self.victoires  = d.get("victoires", [])
             self.scores     = d.get("scores", [])
         except Exception as e:
-            print(f"[IA] Chargement échoué : {e}")
+            print(f"[IA] Impossible de charger la sauvegarde : {e}")
