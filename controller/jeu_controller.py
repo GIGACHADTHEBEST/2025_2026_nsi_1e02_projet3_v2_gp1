@@ -53,7 +53,7 @@ class JeuController:
         self.vue.rafraichir_plateau(self.plateau, sel=None, destinations=[])
         self.vue.maj_scores(self.plateau.score(BLANC), self.plateau.score(NOIR))
         self.vue.set_message("Nouvelle partie ! " +
-                              ("Votre tour (Blancs ⬜)" if mode == "humain_vs_ia"
+                              ("Votre tour (Blancs)" if mode == "humain_vs_ia"
                                else "IA vs IA — regardez les dames apprendre !"))
         self.vue.set_tour(self.joueur_courant)
 

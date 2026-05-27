@@ -1,4 +1,4 @@
-# ♟ Jeu de Dames — Projet NSI
+# Jeu de Dames — Projet NSI
 ### Architecture MVC · IA Q-Learning à convergence rapide
 
 ---
