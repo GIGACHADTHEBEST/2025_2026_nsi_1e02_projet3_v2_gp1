@@ -211,11 +211,11 @@ class VuePrincipale:
                                   state="disabled", relief="flat", bd=0,
                                   insertbackground="white")
         self.txt_stats.pack(**sp)
-        self._bouton("↺  Actualiser stats", self._on_stats,
+        self._bouton("  Actualiser stats", self._on_stats,
                      self.sidebar, "#1E3A1E").pack(**sp, fill="x")
 
         self._sep(self.sidebar)
-        self._bouton("🗑  Réinitialiser l'IA", self._on_reset,
+        self._bouton("  Réinitialiser l'IA", self._on_reset,
                      self.sidebar, "#3A1010").pack(**sp, fill="x")
 
     def _build_footer(self):
