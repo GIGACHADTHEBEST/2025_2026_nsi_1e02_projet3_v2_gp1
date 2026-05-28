@@ -1,4 +1,4 @@
-<<<<<<< HEAD
+
 Projet 3
 Gwenolé Beillevaire
 Jermolaj Adarcenko
